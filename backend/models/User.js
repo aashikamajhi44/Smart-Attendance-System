@@ -21,20 +21,28 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
     },
     role: {
-      type: String,
-      enum: ["admin", "staff"],
-      default: "staff",
-    },
+  type: String,
+  enum: ["admin", "staff", "student"],
+  default: "staff",
+},
+linkedStudentId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Student",
+  default: null,
+},
+mustChangePassword: {
+  type: Boolean,
+  default: false,
+},
   },
   { timestamps: true }
 );
 
 // Hash password before saving
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // Compare entered password with hashed password
