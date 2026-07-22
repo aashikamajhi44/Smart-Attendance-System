@@ -52,6 +52,7 @@ const loginUser = async (req, res) => {
       email: user.email,
       role: user.role,
       mustChangePassword: user.mustChangePassword,
+      linkedStudentId: user.linkedStudentId,
       token: generateToken(user._id),
     });
   } catch (error) {

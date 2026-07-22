@@ -14,7 +14,7 @@ const authRoutes = require("./routes/authRoutes");
 const studentRoutes = require("./routes/studentRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
 const reportRoutes = require("./routes/reportRoutes");
-
+const faceRoutes = require("./routes/faceRoutes");
 
 const app = express();
 
@@ -26,6 +26,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/face-profiles", faceRoutes);
 
 app.get("/", (req, res) => {
   res.send("Smart Attendance System API is running...");
