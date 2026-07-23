@@ -12,4 +12,9 @@ const getAttendance = async (params = {}) => {
   return res.data;
 };
 
-export default { getAttendance };
+const markAttendance = async (data) => {
+  const res = await axios.post(API_URL, data, authHeader());
+  return res.data;
+};
+
+export default { getAttendance, markAttendance };
