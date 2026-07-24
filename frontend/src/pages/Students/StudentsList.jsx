@@ -22,6 +22,16 @@ const StudentsList = () => {
     fetchStudents();
   }, []);
 
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this student? This cannot be undone.")) return;
+    try {
+      await studentService.deleteStudent(id);
+      setStudents((prev) => prev.filter((s) => s._id !== id));
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete student");
+    }
+  };
+
   const filtered = students.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -68,6 +78,7 @@ const StudentsList = () => {
                 <th className="px-4 py-3">Student ID</th>
                 <th className="px-4 py-3">Department</th>
                 <th className="px-4 py-3">Face Profile</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -86,6 +97,22 @@ const StudentsList = () => {
                         Pending
                       </span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {!s.isFaceRegistered && (
+                      <Link
+                        to={`/students/${s._id}/enroll-face`}
+                        className="text-xs font-semibold text-orange-600 hover:text-orange-700 mr-3"
+                      >
+                        Enroll Face
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => handleDelete(s._id)}
+                      className="text-xs font-semibold text-red-600 hover:text-red-700"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
