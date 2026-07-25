@@ -10,7 +10,7 @@ import AddStudent from "./pages/Students/AddStudent";
 import StudentPortal from "./pages/Student/StudentPortal";
 import AttendanceHistory from "./pages/Attendance/AttendanceHistory";
 import Reports from "./pages/Reports/Reports";
-
+import LiveRecognition from "./pages/Attendance/LiveRecognition";
 
 function App() {
   return (
@@ -49,6 +49,7 @@ function App() {
             <Route path="/students/add" element={<AddStudent />} />
             <Route path="/attendance/history" element={<AttendanceHistory />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/attendance/live" element={<LiveRecognition />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />
