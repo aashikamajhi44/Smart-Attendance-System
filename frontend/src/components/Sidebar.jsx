@@ -53,6 +53,7 @@ const Sidebar = () => {
               <NavLink
                 key={link.to}
                 to={link.to}
+                end={link.to === "/students"}
                 className={({ isActive }) =>
                   `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors ${
                     isActive
