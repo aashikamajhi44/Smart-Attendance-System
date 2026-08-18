@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useAuth from "../../hooks/useAuth";
 import attendanceService from "../../services/attendanceService";
 
 const StudentPortal = () => {
   const { user, logout } = useAuth();
-  const [records, setRecords] = useState([]);
+  const [allRecords, setAllRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [monthFilter, setMonthFilter] = useState("all");
 
   useEffect(() => {
     const fetchMyAttendance = async () => {
@@ -17,7 +18,7 @@ const StudentPortal = () => {
         const data = await attendanceService.getAttendance({
           studentId: user.linkedStudentId,
         });
-        setRecords(data);
+        setAllRecords(data);
       } catch (err) {
         // fail silently, show empty state
       } finally {
@@ -27,6 +28,25 @@ const StudentPortal = () => {
     fetchMyAttendance();
   }, [user]);
 
+  // Distinct months present in the data, most recent first
+  const availableMonths = useMemo(() => {
+    const set = new Set(allRecords.map((r) => r.date?.slice(0, 7)));
+    return Array.from(set).sort().reverse();
+  }, [allRecords]);
+
+  const records = useMemo(() => {
+    if (monthFilter === "all") return allRecords;
+    return allRecords.filter((r) => r.date?.startsWith(monthFilter));
+  }, [allRecords, monthFilter]);
+
+  const monthLabel = (ym) => {
+    const [y, m] = ym.split("-");
+    return new Date(Number(y), Number(m) - 1).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  };
+
   const presentCount = records.filter((r) => r.status === "Present").length;
   const lateCount = records.filter((r) => r.status === "Late").length;
   const absentCount = records.filter((r) => r.status === "Absent").length;
@@ -34,15 +54,39 @@ const StudentPortal = () => {
   const attendancePct =
     totalDays > 0 ? Math.round(((presentCount + lateCount) / totalDays) * 100) : null;
 
-  // Present-day streak (consecutive Present/Late from the most recent record)
   const streak = (() => {
     let count = 0;
-    for (const r of records) {
+    for (const r of allRecords) {
       if (r.status === "Present" || r.status === "Late") count++;
       else break;
     }
     return count;
   })();
+
+  // Last 7 calendar days, most recent record wins per day
+  const weekStrip = useMemo(() => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const rec = allRecords.find((r) => r.date === dateStr);
+      days.push({
+        label: d.toLocaleDateString("en-US", { weekday: "narrow" }),
+        dateStr,
+        status: rec?.status || null,
+        isToday: i === 0,
+      });
+    }
+    return days;
+  }, [allRecords]);
+
+  const dotColor = (status) => {
+    if (status === "Present") return "bg-green-600";
+    if (status === "Late") return "bg-orange-500";
+    if (status === "Absent") return "bg-red-500";
+    return "bg-gray-200";
+  };
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -60,8 +104,19 @@ const StudentPortal = () => {
     return map[status] || "bg-gray-100 text-gray-600";
   };
 
+  const handleExport = () => {
+    const header = "Date,Time,Status\n";
+    const rows = records.map((r) => `${r.date},${r.time},${r.status}`).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `attendance-${monthFilter === "all" ? "all" : monthFilter}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const firstName = user?.name?.split(" ")[0] || "Student";
-  const ringOffset = attendancePct !== null ? 100 - attendancePct : 100;
 
   return (
     <div className="min-h-screen bg-green-50/40">
@@ -107,7 +162,7 @@ const StudentPortal = () => {
         </div>
 
         {/* Hero row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
           {/* Progress ring card */}
           <div className="bg-gradient-to-br from-green-900 via-green-800 to-green-700 rounded-2xl p-6 text-white flex items-center gap-5 relative overflow-hidden">
             <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-orange-500/20" />
@@ -129,14 +184,7 @@ const StudentPortal = () => {
                   transform="rotate(-90 18 18)"
                 />
               )}
-              <text
-                x="18"
-                y="21"
-                textAnchor="middle"
-                fontWeight="700"
-                fontSize="8.5"
-                fill="white"
-              >
+              <text x="18" y="21" textAnchor="middle" fontWeight="700" fontSize="8.5" fill="white">
                 {loading ? "…" : attendancePct !== null ? `${attendancePct}%` : "—"}
               </text>
             </svg>
@@ -144,7 +192,9 @@ const StudentPortal = () => {
               <div className="text-[11px] uppercase tracking-wide text-green-300 font-semibold">
                 Overall Attendance
               </div>
-              <div className="text-lg font-bold mt-0.5">This Term</div>
+              <div className="text-lg font-bold mt-0.5">
+                {monthFilter === "all" ? "All Time" : monthLabel(monthFilter)}
+              </div>
               {attendancePct !== null && (
                 <div className="text-[11px] text-green-200 mt-2 font-mono">
                   {attendancePct >= 75 ? "Above 75% requirement" : "Below 75% requirement"}
@@ -190,9 +240,33 @@ const StudentPortal = () => {
           </div>
         </div>
 
+        {/* This week strip */}
+        {!loading && allRecords.length > 0 && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 mb-5">
+            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wide mb-3">
+              This Week
+            </h3>
+            <div className="flex items-center justify-between">
+              {weekStrip.map((d) => (
+                <div key={d.dateStr} className="flex flex-col items-center gap-1.5">
+                  <span className={`text-[10px] font-mono ${d.isToday ? "text-green-700 font-bold" : "text-gray-400"}`}>
+                    {d.label}
+                  </span>
+                  <div
+                    className={`w-3 h-3 rounded-full ${dotColor(d.status)} ${
+                      d.isToday ? "ring-2 ring-offset-2 ring-green-600" : ""
+                    }`}
+                    title={d.status || "No record"}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Stat pills */}
         {!loading && totalDays > 0 && (
-          <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-3 gap-3 mb-5">
             <div className="bg-white border border-gray-100 rounded-xl p-4 text-center">
               <div className="text-xl font-bold text-green-700">{presentCount}</div>
               <div className="text-[11px] text-gray-400 mt-0.5">Present</div>
@@ -210,8 +284,32 @@ const StudentPortal = () => {
 
         {/* Attendance table */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
             <h3 className="font-bold text-sm text-gray-900">My Attendance</h3>
+            <div className="flex items-center gap-2">
+              {availableMonths.length > 0 && (
+                <select
+                  value={monthFilter}
+                  onChange={(e) => setMonthFilter(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 font-mono text-gray-600 outline-none focus:border-green-600"
+                >
+                  <option value="all">All time</option>
+                  {availableMonths.map((m) => (
+                    <option key={m} value={m}>
+                      {monthLabel(m)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {records.length > 0 && (
+                <button
+                  onClick={handleExport}
+                  className="text-xs font-semibold text-green-700 border border-green-200 bg-green-50 hover:bg-green-100 rounded-lg px-2.5 py-1.5"
+                >
+                  Export CSV
+                </button>
+              )}
+            </div>
           </div>
 
           {loading ? (
